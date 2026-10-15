@@ -462,6 +462,48 @@ describe('run', () => {
     expect(setOutputSpy).toHaveBeenCalledWith('all-labels', 'external-label');
   });
 
+  it('replaces stale configured labels while preserving unconfigured labels', async () => {
+    configureInput({'sync-labels': true});
+    usingLabelerConfigYaml('mixed_labels.yml');
+    mockGitHubResponseChangedFiles('components/b/file.ts');
+    getPullMock.mockResolvedValue(<any>{
+      data: {
+        node_id: 'PR_node_id',
+        labels: [
+          {name: 'component-a', node_id: 'label_a'},
+          {name: 'external-label', node_id: 'external_label'}
+        ]
+      }
+    });
+
+    await run();
+
+    expect(removeLabelsMock).toHaveBeenCalledTimes(1);
+    expect(removeLabelsMock).toHaveBeenCalledWith(
+      expect.stringContaining('removeLabelsFromLabelable'),
+      {
+        labelableId: 'PR_node_id',
+        labelIds: ['label_a']
+      }
+    );
+    expect(addLabelsMock).toHaveBeenCalledTimes(1);
+    expect(addLabelsMock).toHaveBeenCalledWith({
+      owner: 'monalisa',
+      repo: 'helloworld',
+      issue_number: 123,
+      labels: ['component-b']
+    });
+    expect(setLabelsMock).not.toHaveBeenCalled();
+    expect(setOutputSpy).toHaveBeenCalledWith('new-labels', 'component-b');
+    expect(setOutputSpy).toHaveBeenCalledWith(
+      'all-labels',
+      'external-label,component-b'
+    );
+    expect(removeLabelsMock.mock.invocationCallOrder[0]).toBeLessThan(
+      addLabelsMock.mock.invocationCallOrder[0]
+    );
+  });
+
   it('(with sync-labels: false) it only logs the excess labels', async () => {
     configureInput({
       'repo-token': 'foo',
