@@ -1,5 +1,4 @@
 import * as core from '@actions/core';
-import * as github from '@actions/github';
 
 export interface BranchMatchConfig {
   headBranch?: string[];
@@ -7,6 +6,11 @@ export interface BranchMatchConfig {
 }
 
 type BranchBase = 'base' | 'head';
+
+export interface PullRequestBranches {
+  base?: {ref: string};
+  head?: {ref: string};
+}
 
 export function toBranchMatchConfig(config: any): BranchMatchConfig {
   if (!config['head-branch'] && !config['base-branch']) {
@@ -27,24 +31,19 @@ export function toBranchMatchConfig(config: any): BranchMatchConfig {
   return branchConfig;
 }
 
-export function getBranchName(branchBase: BranchBase): string | undefined {
-  const pullRequest = github.context.payload.pull_request;
-  if (!pullRequest) {
-    return undefined;
-  }
-
-  if (branchBase === 'base') {
-    return pullRequest.base?.ref;
-  } else {
-    return pullRequest.head?.ref;
-  }
+export function getBranchName(
+  branchBase: BranchBase,
+  pullRequest: PullRequestBranches
+): string | undefined {
+  return pullRequest[branchBase]?.ref;
 }
 
 export function checkAnyBranch(
   regexps: string[],
-  branchBase: BranchBase
+  branchBase: BranchBase,
+  pullRequest: PullRequestBranches
 ): boolean {
-  const branchName = getBranchName(branchBase);
+  const branchName = getBranchName(branchBase, pullRequest);
   if (!branchName) {
     core.debug(`   no branch name`);
     return false;
@@ -65,9 +64,10 @@ export function checkAnyBranch(
 
 export function checkAllBranch(
   regexps: string[],
-  branchBase: BranchBase
+  branchBase: BranchBase,
+  pullRequest: PullRequestBranches
 ): boolean {
-  const branchName = getBranchName(branchBase);
+  const branchName = getBranchName(branchBase, pullRequest);
   if (!branchName) {
     core.debug(`   cannot fetch branch name from the pull request`);
     return false;

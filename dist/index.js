@@ -44124,7 +44124,6 @@ function checkIfAllGlobsMatchAllFiles(changedFiles, globs, dot) {
 
 ;// CONCATENATED MODULE: ./lib/branch.js
 
-
 function toBranchMatchConfig(config) {
     if (!config['head-branch'] && !config['base-branch']) {
         return {};
@@ -44140,20 +44139,11 @@ function toBranchMatchConfig(config) {
     }
     return branchConfig;
 }
-function getBranchName(branchBase) {
-    const pullRequest = github_context.payload.pull_request;
-    if (!pullRequest) {
-        return undefined;
-    }
-    if (branchBase === 'base') {
-        return pullRequest.base?.ref;
-    }
-    else {
-        return pullRequest.head?.ref;
-    }
+function getBranchName(branchBase, pullRequest) {
+    return pullRequest[branchBase]?.ref;
 }
-function checkAnyBranch(regexps, branchBase) {
-    const branchName = getBranchName(branchBase);
+function checkAnyBranch(regexps, branchBase, pullRequest) {
+    const branchName = getBranchName(branchBase, pullRequest);
     if (!branchName) {
         core_debug(`   no branch name`);
         return false;
@@ -44169,8 +44159,8 @@ function checkAnyBranch(regexps, branchBase) {
     core_debug(`   "branch" patterns did not match against ${branchName}`);
     return false;
 }
-function checkAllBranch(regexps, branchBase) {
-    const branchName = getBranchName(branchBase);
+function checkAllBranch(regexps, branchBase, pullRequest) {
+    const branchName = getBranchName(branchBase, pullRequest);
     if (!branchName) {
         core_debug(`   cannot fetch branch name from the pull request`);
         return false;
@@ -44462,7 +44452,7 @@ async function labeler() {
                 core_debug(`skipping ${label} (uses changed-files and max-files-changed exceeded)`);
                 continue;
             }
-            if (checkMatchConfigs(pullRequest.changedFiles, configs, dot)) {
+            if (checkMatchConfigs(pullRequest.changedFiles, configs, dot, pullRequest.data)) {
                 allLabels.add(label);
                 // Track if this label uses changed-files patterns
                 if (usesChangedFiles) {
@@ -44532,34 +44522,34 @@ async function labeler() {
         }
     }
 }
-function checkMatchConfigs(changedFiles, matchConfigs, dot) {
+function checkMatchConfigs(changedFiles, matchConfigs, dot, pullRequest) {
     for (const config of matchConfigs) {
         core_debug(` checking config ${JSON.stringify(config)}`);
-        if (!checkMatch(changedFiles, config, dot)) {
+        if (!checkMatch(changedFiles, config, dot, pullRequest)) {
             return false;
         }
     }
     return true;
 }
-function checkMatch(changedFiles, matchConfig, dot) {
+function checkMatch(changedFiles, matchConfig, dot, pullRequest) {
     if (!Object.keys(matchConfig).length) {
         core_debug(`  no "any" or "all" patterns to check`);
         return false;
     }
     if (matchConfig.all) {
-        if (!checkAll(matchConfig.all, changedFiles, dot)) {
+        if (!checkAll(matchConfig.all, changedFiles, dot, pullRequest)) {
             return false;
         }
     }
     if (matchConfig.any) {
-        if (!checkAny(matchConfig.any, changedFiles, dot)) {
+        if (!checkAny(matchConfig.any, changedFiles, dot, pullRequest)) {
             return false;
         }
     }
     return true;
 }
 // equivalent to "Array.some()" but expanded for debugging and clarity
-function checkAny(matchConfigs, changedFiles, dot) {
+function checkAny(matchConfigs, changedFiles, dot, pullRequest) {
     core_debug(`  checking "any" patterns`);
     if (!matchConfigs.length ||
         !matchConfigs.some(configOption => Object.keys(configOption).length)) {
@@ -44568,7 +44558,7 @@ function checkAny(matchConfigs, changedFiles, dot) {
     }
     for (const matchConfig of matchConfigs) {
         if (matchConfig.baseBranch) {
-            if (checkAnyBranch(matchConfig.baseBranch, 'base')) {
+            if (checkAnyBranch(matchConfig.baseBranch, 'base', pullRequest)) {
                 core_debug(`  "any" patterns matched`);
                 return true;
             }
@@ -44580,7 +44570,7 @@ function checkAny(matchConfigs, changedFiles, dot) {
             }
         }
         if (matchConfig.headBranch) {
-            if (checkAnyBranch(matchConfig.headBranch, 'head')) {
+            if (checkAnyBranch(matchConfig.headBranch, 'head', pullRequest)) {
                 core_debug(`  "any" patterns matched`);
                 return true;
             }
@@ -44590,7 +44580,7 @@ function checkAny(matchConfigs, changedFiles, dot) {
     return false;
 }
 // equivalent to "Array.every()" but expanded for debugging and clarity
-function checkAll(matchConfigs, changedFiles, dot) {
+function checkAll(matchConfigs, changedFiles, dot, pullRequest) {
     core_debug(`  checking "all" patterns`);
     if (!matchConfigs.length ||
         !matchConfigs.some(configOption => Object.keys(configOption).length)) {
@@ -44599,7 +44589,7 @@ function checkAll(matchConfigs, changedFiles, dot) {
     }
     for (const matchConfig of matchConfigs) {
         if (matchConfig.baseBranch) {
-            if (!checkAllBranch(matchConfig.baseBranch, 'base')) {
+            if (!checkAllBranch(matchConfig.baseBranch, 'base', pullRequest)) {
                 core_debug(`  "all" patterns did not match`);
                 return false;
             }
@@ -44615,7 +44605,7 @@ function checkAll(matchConfigs, changedFiles, dot) {
             }
         }
         if (matchConfig.headBranch) {
-            if (!checkAllBranch(matchConfig.headBranch, 'head')) {
+            if (!checkAllBranch(matchConfig.headBranch, 'head', pullRequest)) {
                 core_debug(`  "all" patterns did not match`);
                 return false;
             }

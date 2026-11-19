@@ -1,4 +1,4 @@
-import {jest, describe, beforeEach, it, expect} from '@jest/globals';
+import {jest, describe, it, expect} from '@jest/globals';
 import type {BranchMatchConfig} from '../src/branch.js';
 
 jest.unstable_mockModule('@actions/core', () => ({
@@ -8,51 +8,40 @@ jest.unstable_mockModule('@actions/core', () => ({
   error: jest.fn()
 }));
 
-const mockGithubContext = {
-  payload: {
-    pull_request: {
-      number: 123,
-      head: {ref: 'head-branch-name'},
-      base: {ref: 'base-branch-name'}
-    }
-  },
-  repo: {owner: 'monalisa', repo: 'helloworld'}
-} as any;
+const {
+  getBranchName,
+  checkAnyBranch: checkAnyBranchForPullRequest,
+  checkAllBranch: checkAllBranchForPullRequest,
+  toBranchMatchConfig
+} = await import('../src/branch.js');
 
-jest.unstable_mockModule('@actions/github', () => ({
-  context: mockGithubContext,
-  getOctokit: jest.fn()
-}));
+const pullRequest = {
+  head: {ref: 'test/feature/123'},
+  base: {ref: 'main'}
+};
 
-const {getBranchName, checkAnyBranch, checkAllBranch, toBranchMatchConfig} =
-  await import('../src/branch.js');
+const checkAnyBranch = (regexps: string[], branchBase: 'base' | 'head') =>
+  checkAnyBranchForPullRequest(regexps, branchBase, pullRequest);
+const checkAllBranch = (regexps: string[], branchBase: 'base' | 'head') =>
+  checkAllBranchForPullRequest(regexps, branchBase, pullRequest);
 
 describe('getBranchName', () => {
   describe('when the pull requests base branch is requested', () => {
     it('returns the base branch name', () => {
-      const result = getBranchName('base');
-      expect(result).toEqual('base-branch-name');
+      const result = getBranchName('base', pullRequest);
+      expect(result).toEqual('main');
     });
   });
 
   describe('when the pull requests head branch is requested', () => {
     it('returns the head branch name', () => {
-      const result = getBranchName('head');
-      expect(result).toEqual('head-branch-name');
+      const result = getBranchName('head', pullRequest);
+      expect(result).toEqual('test/feature/123');
     });
   });
 });
 
 describe('checkAllBranch', () => {
-  beforeEach(() => {
-    mockGithubContext.payload.pull_request.head = {
-      ref: 'test/feature/123'
-    };
-    mockGithubContext.payload.pull_request.base = {
-      ref: 'main'
-    };
-  });
-
   describe('when a single pattern is provided', () => {
     describe('and the pattern matches the head branch', () => {
       it('returns true', () => {
@@ -103,15 +92,6 @@ describe('checkAllBranch', () => {
 });
 
 describe('checkAnyBranch', () => {
-  beforeEach(() => {
-    mockGithubContext.payload.pull_request.head = {
-      ref: 'test/feature/123'
-    };
-    mockGithubContext.payload.pull_request.base = {
-      ref: 'main'
-    };
-  });
-
   describe('when a single pattern is provided', () => {
     describe('and the pattern matches the head branch', () => {
       it('returns true', () => {

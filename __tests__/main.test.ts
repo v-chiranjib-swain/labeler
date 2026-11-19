@@ -69,7 +69,18 @@ jest.unstable_mockModule('@actions/github', () => ({
       },
       repos: {getContent: reposMock},
       pulls: {
-        get: getPullMock,
+        get: async (...args: unknown[]) => {
+          const response = await getPullMock(...args);
+          const eventPullRequest = mockGithubContext.payload.pull_request;
+          return {
+            ...response,
+            data: {
+              head: eventPullRequest?.head,
+              base: eventPullRequest?.base,
+              ...response.data
+            }
+          };
+        },
         listFiles: {endpoint: {merge: listFilesMergeMock}}
       }
     },
@@ -98,6 +109,9 @@ class NotFound extends Error {
 
 const yamlFixtures = {
   'branches.yml': fs.readFileSync('__tests__/fixtures/branches.yml'),
+  'dispatch_branches.yml': fs.readFileSync(
+    '__tests__/fixtures/dispatch_branches.yml'
+  ),
   'only_pdfs.yml': fs.readFileSync('__tests__/fixtures/only_pdfs.yml'),
   'not_supported.yml': fs.readFileSync('__tests__/fixtures/not_supported.yml'),
   'any_and_all.yml': fs.readFileSync('__tests__/fixtures/any_and_all.yml'),
@@ -140,8 +154,13 @@ afterAll(async () => {
 describe('run', () => {
   beforeEach(() => {
     getPullMock.mockResolvedValue({data: {labels: []}} as any);
-    mockGithubContext.payload.pull_request.head = {ref: 'head-branch-name'};
-    mockGithubContext.payload.pull_request.base = {ref: 'base-branch-name'};
+    mockGithubContext.payload = {
+      pull_request: {
+        number: 123,
+        head: {ref: 'head-branch-name'},
+        base: {ref: 'base-branch-name'}
+      }
+    };
   });
   it('(with dot: false) adds labels to PRs that match our glob patterns', async () => {
     configureInput({});
@@ -305,6 +324,31 @@ describe('run', () => {
       'all-labels',
       'test-branch,feature-branch'
     );
+  });
+
+  it('matches branch rules against the fetched PR during workflow_dispatch', async () => {
+    configureInput({'pr-number': ['123']});
+    usingLabelerConfigYaml('dispatch_branches.yml');
+    mockGitHubResponseChangedFiles('docs/repro.md');
+    mockGithubContext.payload = {};
+    getPullMock.mockResolvedValue({
+      data: {
+        head: {ref: 'feature/repro/123'},
+        base: {ref: 'main'},
+        labels: []
+      }
+    });
+
+    await run();
+
+    expect(coreSetFailedMock).not.toHaveBeenCalled();
+    expect(addLabelsMock).toHaveBeenCalledTimes(1);
+    expect(addLabelsMock).toHaveBeenCalledWith({
+      owner: 'monalisa',
+      repo: 'helloworld',
+      issue_number: 123,
+      labels: ['feature-to-main']
+    });
   });
 
   it('can support multiple branches by batching', async () => {
