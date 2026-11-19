@@ -52,13 +52,24 @@ jest.unstable_mockModule('../src/api/index.js', () => ({
 const core = await import('@actions/core');
 const github = await import('@actions/github');
 const api = await import('../src/api/index.js');
-const {labeler, checkMatchConfigs} = await import('../src/labeler.js');
+const {labeler, checkMatchConfigs: checkMatchConfigsWithBranches} =
+  await import('../src/labeler.js');
 const {
   toMatchConfig,
   getLabelConfigMapFromObject,
   getLabelConfigResultFromObject,
   configUsesChangedFiles
 } = await import('../src/api/get-label-configs.js');
+
+const checkMatchConfigs = (
+  changedFiles: string[],
+  matchConfigs: MatchConfig[],
+  dot: boolean
+) =>
+  checkMatchConfigsWithBranches(changedFiles, matchConfigs, dot, {
+    head: {ref: 'head-branch'},
+    base: {ref: 'base-branch'}
+  });
 
 beforeAll(() => {
   (core.getInput as jest.Mock).mockImplementation(() => undefined);

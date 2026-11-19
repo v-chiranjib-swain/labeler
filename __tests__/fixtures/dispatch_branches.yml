@@ -1,0 +1,4 @@
+feature-to-main:
+  - all:
+      - head-branch: '^feature/'
+      - base-branch: '^main$'

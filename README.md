@@ -333,6 +333,10 @@ jobs:
 
 **Note:** in normal usage the `pr-number` input is not required as the action will detect the PR number from the workflow context.
 
+When `pr-number` is provided (for example, in a manually dispatched or scheduled
+workflow), branch-based rules are evaluated against each requested pull
+request's head and base branches.
+
 #### Outputs
 
 Labeler provides the following outputs:
