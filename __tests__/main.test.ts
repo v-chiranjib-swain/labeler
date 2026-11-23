@@ -326,32 +326,7 @@ describe('run', () => {
     );
   });
 
-  it('matches branch rules against the fetched PR during workflow_dispatch', async () => {
-    configureInput({'pr-number': ['123']});
-    usingLabelerConfigYaml('dispatch_branches.yml');
-    mockGitHubResponseChangedFiles('docs/repro.md');
-    mockGithubContext.payload = {};
-    getPullMock.mockResolvedValue({
-      data: {
-        head: {ref: 'feature/repro/123'},
-        base: {ref: 'main'},
-        labels: []
-      }
-    });
-
-    await run();
-
-    expect(coreSetFailedMock).not.toHaveBeenCalled();
-    expect(addLabelsMock).toHaveBeenCalledTimes(1);
-    expect(addLabelsMock).toHaveBeenCalledWith({
-      owner: 'monalisa',
-      repo: 'helloworld',
-      issue_number: 123,
-      labels: ['feature-to-main']
-    });
-  });
-
-  it('matches branch rules independently for each requested PR', async () => {
+  it('matches branch rules against each fetched PR during workflow_dispatch', async () => {
     configureInput({'pr-number': ['123', '456']});
     usingLabelerConfigYaml('dispatch_branches.yml');
     mockGitHubResponseChangedFiles('docs/repro.md');
