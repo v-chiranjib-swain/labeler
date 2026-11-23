@@ -351,6 +351,50 @@ describe('run', () => {
     });
   });
 
+  it('matches branch rules independently for each requested PR', async () => {
+    configureInput({'pr-number': ['123', '456']});
+    usingLabelerConfigYaml('dispatch_branches.yml');
+    mockGitHubResponseChangedFiles('docs/repro.md');
+    mockGithubContext.payload = {};
+    getPullMock
+      .mockResolvedValueOnce({
+        data: {
+          head: {ref: 'feature/repro/123'},
+          base: {ref: 'main'},
+          labels: []
+        }
+      })
+      .mockResolvedValueOnce({
+        data: {
+          head: {ref: 'fix/repro/456'},
+          base: {ref: 'release'},
+          labels: []
+        }
+      });
+
+    await run();
+
+    expect(coreSetFailedMock).not.toHaveBeenCalled();
+    expect(getPullMock).toHaveBeenCalledTimes(2);
+    expect(getPullMock).toHaveBeenNthCalledWith(1, {
+      owner: 'monalisa',
+      repo: 'helloworld',
+      pull_number: 123
+    });
+    expect(getPullMock).toHaveBeenNthCalledWith(2, {
+      owner: 'monalisa',
+      repo: 'helloworld',
+      pull_number: 456
+    });
+    expect(addLabelsMock).toHaveBeenCalledTimes(1);
+    expect(addLabelsMock).toHaveBeenCalledWith({
+      owner: 'monalisa',
+      repo: 'helloworld',
+      issue_number: 123,
+      labels: ['feature-to-main']
+    });
+  });
+
   it('can support multiple branches by batching', async () => {
     configureInput({});
     mockGithubContext.payload.pull_request.head = {ref: 'fix/123'};
