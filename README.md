@@ -412,6 +412,11 @@ If you prefer not to grant the `issues: write` permission in your workflow, you 
 
 Using the `pull_request_target` event trigger involves several peculiarities related to initial set up of the labeler or updating version of the labeler.
 
+GitHub's default Actions policy is scheduled to block `pull_request_target` workflows in affected public repositories on December 2, 2026. Labeler commonly uses `pull_request_target` to apply labels to pull requests from forks.
+If your workflow is affected, configure an applicable workflow execution policy under **Settings > Actions > Policies** to allow the event, and check policy insights to confirm the workflow is covered. Apply the policy as narrowly as possible, and account for the actors who need to trigger labeling for your pull requests. For details, see GitHub's documentation on [securely using `pull_request_target`](https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target#default-policy-for-pull_request_target) and [governing workflow execution](https://docs.github.com/en/actions/how-tos/administer/control-workflow-execution).
+
+Only allow `pull_request_target` when necessary. Do not check out or execute code from an untrusted pull request in a workflow with this event.
+
 ### Initial set up of the labeler action
 
 When submitting an initial pull request to a repository using the `pull_request_target` event, the labeler workflow will not run on that pull request because the `pull_request_target` execution runs off the base branch instead of the pull request's branch. Unfortunately this means the introduction of the labeler can not be verified during that pull request and it needs to be committed blindly.
